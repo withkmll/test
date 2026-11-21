@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<title>협력사 납기·입고품질 대시보드</title>
+<style>
+:root {
+  --navy: #102641; --ink: #162940; --muted: #506177;
+  --line: #dce4ec; --soft: #f5f8fb; --white: #fff;
+  --blue: #256489; --blue-soft: #eaf3f9; --orange: #c26325; --orange-ink: #8c3e10;
+  --red: #a22c40; --red-ink: #8f2336; --green-ink: #24644e;
+  --orange-soft: #fff1e5; --red-soft: #fcecef; --green-soft: #e7f4ee;
+}
+* { box-sizing: border-box; }
+html { scroll-padding-top: 1rem; }
+body {
+  margin: 0; background: var(--white); color: var(--ink);
+  font: 1rem/1.55 "Pretendard", "Noto Sans CJK KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+h1, h2, h3, h4, p, dl, dd, ul { margin: 0; }
+button, select, input { font: inherit; }
+a { color: inherit; }
+:focus-visible { outline: 3px solid #1478a5; outline-offset: 3px; }
+.wrap, .top { width: min(100% - 3rem, 78rem); margin-inline: auto; }
+header { background: var(--navy); color: white; }
+.top { min-height: 3.75rem; display: flex; align-items: center; gap: 2.5rem; }
+.brand { display: flex; gap: .7rem; align-items: center; font-weight: 740; white-space: nowrap; }
+.brand::before { content: ""; width: .7rem; height: .7rem; border: 2px solid #8ac9e1; border-radius: 2px; }
+nav { display: flex; flex-wrap: wrap; gap: .35rem 1.55rem; color: #e1ebf5; font-size: .875rem; }
+nav a { text-decoration: none; }
+nav a:hover { text-decoration: underline; text-underline-offset: .25em; }
+main { padding: 2.2rem 0 1.7rem; }
+.mast { display: flex; align-items: end; justify-content: space-between; gap: 1.4rem; margin-bottom: 1.4rem; }
+h1 { font-size: clamp(1.65rem, 3.3vw, 2.4rem); line-height: 1.2; letter-spacing: -.055em; }
+.mast p { margin-top: .45rem; color: var(--muted); }
+.cutoff { min-width: 14rem; color: var(--muted); font-size: .875rem; }
+.cutoff div { display: flex; justify-content: space-between; gap: .8rem; }
+.cutoff dd { color: var(--ink); font-weight: 700; }
+.kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .85rem; }
+.stat, .chart, .panel, .detail { border: 1px solid var(--line); border-radius: .6rem; background: var(--white); min-width: 0; }
+.stat { padding: .85rem 1rem 1rem; border-top: 3px solid var(--blue); }
+.stat[data-metric="quality"] { border-top-color: var(--red); }
+.stat[data-metric="open"] { border-top-color: #627590; }
+.stat h2 { color: var(--muted); font-size: .875rem; font-weight: 680; }
+.metric { font-size: 2.05rem; letter-spacing: -.05em; line-height: 1.25; display: block; margin: .2rem 0 .25rem; }
+.stat[data-metric="quality"] .metric { color: var(--red-ink); }
+.stat p, .section-title p { color: var(--muted); font-size: .875rem; }
+.late-text { color: var(--orange-ink); font-weight: 700; }
+.callout {
+  display: flex; align-items: baseline; gap: .55rem 1.1rem; margin: .9rem 0 1.65rem;
+  padding: .65rem .9rem; border: 1px solid #d5e4ed; border-left: 3px solid var(--blue);
+  border-radius: .35rem; background: var(--soft); font-size: .875rem;
+}
+.callout a { color: #114f73; font-weight: 750; white-space: nowrap; text-underline-offset: .2em; }
+.section-title { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .2rem 1rem; margin-bottom: .65rem; }
+h2 { font-size: 1.25rem; letter-spacing: -.03em; }
+.charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .85rem; }
+.chart { padding: .95rem 1.05rem; }
+.chart h3 { font-size: 1rem; letter-spacing: -.02em; }
+.chart > p { color: var(--muted); font-size: .875rem; margin-top: .13rem; }
+.chart-body { min-height: 8.1rem; margin-top: .75rem; }
+.hbar { display: grid; gap: .4rem; align-content: center; }
+.hrow { display: grid; grid-template-columns: 4.5rem minmax(0, 1fr) 2.7rem; align-items: center; gap: .65rem; font-size: .875rem; }
+.hrow b { font-weight: 650; }
+.htrack { background: #eef2f6; border-radius: .2rem; display: flex; height: .75rem; overflow: hidden; }
+.htrack > span { height: 100%; }
+.on-time { background: var(--blue); }
+.delayed { background: var(--orange); }
+.hvalue { text-align: right; color: var(--muted); }
+.legend { display: flex; flex-wrap: wrap; gap: .25rem 1rem; color: var(--muted); font-size: .875rem; }
+.chart > .legend, .chart > .chart-note { margin-top: .65rem; }
+.key { display: inline-flex; align-items: center; gap: .4rem; }
+.key::before { content: ""; width: .67rem; height: .67rem; border-radius: .13rem; background: var(--key-color); flex: none; }
+.quality-chart { display: flex; align-items: center; gap: clamp(1.1rem, 4vw, 2.5rem); }
+.donut {
+  width: 8rem; aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center; flex: none;
+}
+.donut-center {
+  width: 70%; aspect-ratio: 1; border-radius: 50%; background: var(--white);
+  display: flex; flex-direction: column; justify-content: center; align-items: center; line-height: 1.2;
+}
+.donut-center strong { font-size: 1.55rem; }
+.donut-center span { color: var(--muted); font-size: .8125rem; }
+.quality-legend { display: grid; gap: .3rem; min-width: 9rem; width: 100%; max-width: 15rem; font-size: .875rem; }
+.quality-legend > div { display: flex; justify-content: space-between; gap: .55rem; }
+.quality-legend b { font-weight: 680; white-space: nowrap; }
+.chart-note { font-weight: 650; }
+.receipt { display: grid; grid-template-columns: 1.4rem minmax(0, 1fr); grid-template-rows: 6.5rem auto; column-gap: .35rem; margin-top: 1.03rem; }
+.ticks { display: flex; flex-direction: column; justify-content: space-between; text-align: right; }
+.ticks, .dates { color: var(--muted); font-size: .8125rem; line-height: 1; }
+.plot {
+  position: relative; border-bottom: 1px solid #ccd8e2; border-left: 1px solid #dce4ec;
+  background: repeating-linear-gradient(to top, transparent 0 calc(33.333% - 1px), #e1e8ee calc(33.333% - 1px) 33.333%);
+}
+.plot-bar, .plot-point { position: absolute; left: var(--x); transform: translateX(-50%); }
+.plot-bar { bottom: 0; height: var(--height); width: min(54%, 1.75rem); border-radius: .18rem .18rem 0 0; background: #4e84a5; }
+.plot-point {
+  z-index: 2; bottom: var(--y); transform: translate(-50%, 50%); width: .62rem; height: .62rem;
+  border: 1px solid white; border-radius: 50%; background: var(--red); transition: none;
+}
+canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.dates { display: grid; grid-auto-columns: 1fr; grid-auto-flow: column; text-align: center; grid-column: 2; padding-top: .45rem; }
+#orders, #criteria { margin-top: 1.65rem; }
+.workbench { display: grid; grid-template-columns: minmax(0, 1.95fr) minmax(19rem, 1fr); gap: .85rem; align-items: start; }
+.filters { display: flex; flex-wrap: wrap; align-items: end; gap: .55rem .7rem; padding: .85rem; border-bottom: 1px solid var(--line); }
+.filters label { display: grid; gap: .23rem; color: var(--muted); font-size: .875rem; font-weight: 670; }
+.filters input, .filters select, .filters button {
+  min-height: 2.4rem; border: 1px solid #bfcddd; border-radius: .32rem; background-color: white;
+  color: var(--ink); padding: .25rem .55rem; font-size: .875rem;
+}
+.filters input { width: 8rem; }
+.filters select {
+  appearance: none; padding-right: 1.65rem;
+  background-image: linear-gradient(45deg, transparent 50%, #52667c 50%), linear-gradient(135deg, #52667c 50%, transparent 50%);
+  background-position: right .72rem center, right .42rem center; background-size: .32rem .32rem; background-repeat: no-repeat;
+}
+.filters button { cursor: pointer; }
+.filters button:hover { background-color: var(--soft); }
+.result { color: var(--muted); font-size: .875rem; white-space: nowrap; margin: 0 0 .45rem auto; }
+.table-wrap { overflow-x: auto; border-radius: 0 0 .6rem .6rem; }
+table { width: 100%; border-collapse: collapse; white-space: nowrap; font-size: .875rem; text-align: left; }
+th, td { padding: .52rem .62rem; border-bottom: 1px solid #e7edf3; }
+thead { color: #3c5168; background: #edf3f8; }
+tbody tr:last-child > * { border-bottom: 0; }
+tbody tr[data-current="true"] { background: var(--blue-soft); }
+tbody tr[data-current="true"] th { box-shadow: inset 3px 0 var(--blue); }
+.order-button { color: #114f73; background: none; border: 0; padding: .08rem .15rem; font-weight: 750; cursor: pointer; text-decoration: underline; text-underline-offset: .2em; }
+.pill { display: inline-block; padding: .06rem .4rem; border-radius: .25rem; background: #edf1f5; color: #485b71; font-weight: 660; }
+.pill.late { color: var(--orange-ink); background: var(--orange-soft); }
+.pill.issue { color: var(--red-ink); background: var(--red-soft); }
+.pill.open { color: #245775; background: #e9f3fa; }
+.pill.closed { color: var(--green-ink); background: var(--green-soft); }
+.detail { padding: 1rem; border-top: 3px solid var(--blue); }
+.detail h3 { font-size: 1.15rem; }
+.detail-meta { margin-top: .22rem; color: var(--muted); font-size: .875rem; }
+.detail dl { margin-top: .82rem; }
+.detail dt { font-weight: 730; margin-top: .72rem; font-size: .875rem; }
+.detail dd { margin-top: .12rem; font-size: .875rem; }
+.detail ul { padding-left: 1.15rem; }
+.detail li + li { margin-top: .22rem; }
+.detail-source { border-top: 1px solid var(--line); margin-top: .8rem; padding-top: .65rem; color: var(--muted); font-size: .8125rem; }
+.criteria { padding: .9rem 1rem; }
+.criteria dl { display: grid; grid-template-columns: max-content 1fr; gap: .3rem 1rem; font-size: .875rem; }
+.criteria dt { font-weight: 700; }
+.criteria dd, footer { color: var(--muted); }
+footer { margin-top: 1rem; font-size: .8125rem; }
+@media (max-width: 64rem) {
+  .workbench { grid-template-columns: 1fr; }
+}
+@media (max-width: 42rem) {
+  .wrap, .top { width: calc(100% - 2rem); }
+  .top { flex-wrap: wrap; gap: .3rem 1.25rem; padding-block: .65rem; }
+  main { padding-top: 1.45rem; }
+  .mast { flex-direction: column; align-items: start; gap: .7rem; }
+  .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat { padding-inline: .7rem; }
+  .charts { grid-template-columns: 1fr; }
+  .callout { flex-wrap: wrap; }
+}
+@media (max-width: 23rem) {
+  .quality-chart { gap: .7rem; }
+  .donut { width: 6.5rem; }
+  .quality-legend { min-width: 0; }
+}
+@media print {
+  nav, .filters { display: none; }
+  * { print-color-adjust: exact; }
+  .chart, .panel, .detail { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <div class="brand">구매·품질 운영</div>
+    <nav aria-label="대시보드 섹션">
+      <a href="#overview">운영 현황</a>
+      <a href="#orders">입고·조치 내역</a>
+      <a href="#criteria">집계 기준</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <section id="overview" aria-labelledby="heading">
+    <div class="mast">
+      <div>
+        <h1 id="heading">협력사 납기·입고품질 대시보드</h1>
+        <p>입고 실적과 검사 결과, 주문별 후속조치</p>
+      </div>
+      <dl class="cutoff">
+        <div><dt>보고서 기준일</dt><dd><time datetime="2026-11-19">2026.11.19</time></dd></div>
+        <div><dt>입고 집계 기간</dt><dd id="period"></dd></div>
+      </dl>
+    </div>
+
+    <div class="kpis" id="kpis" aria-label="전체 주문 기준 핵심 지표"></div>
+
+    <div class="callout">
+      <a href="#orders" id="r02-link">R02 상세 보기</a>
+      <p id="priority"></p>
+    </div>
+
+    <div class="section-title">
+      <h2>납기·입고검사 현황</h2>
+      <p>전체 주문 기준</p>
+    </div>
+    <div class="charts">
+      <article class="chart">
+        <h3>협력사별 납기</h3>
+        <p>협력사별 준수·지연 주문 수</p>
+        <div id="supplier-chart" class="chart-body hbar" role="img"></div>
+        <div class="legend" aria-hidden="true">
+          <span class="key" style="--key-color:var(--blue)">준수</span>
+          <span class="key" style="--key-color:var(--orange)">지연</span>
+        </div>
+      </article>
+      <article class="chart">
+        <h3>입고검사 결과</h3>
+        <p>정상 및 이상 유형별 주문 수</p>
+        <div id="quality-chart" class="chart-body quality-chart" role="img"></div>
+        <p id="quality-note" class="chart-note"></p>
+      </article>
+      <article class="chart">
+        <h3>주문별 지연 일수</h3>
+        <p>약정 납기일을 넘긴 주문</p>
+        <div id="delay-chart" class="chart-body hbar" role="img"></div>
+        <p id="delay-note" class="chart-note"></p>
+      </article>
+      <article class="chart">
+        <h3>일별 입고</h3>
+        <p>실제 입고일별 전체 주문과 검사 이상 건수</p>
+        <div id="receipt-chart" class="receipt" role="img">
+          <div class="ticks" id="receipt-ticks" aria-hidden="true"></div>
+          <div class="plot" id="receipt-plot" aria-hidden="true"></div>
+          <div class="dates" id="receipt-dates" aria-hidden="true"></div>
+        </div>
+        <div class="legend" aria-hidden="true">
+          <span class="key" style="--key-color:#4e84a5">입고 주문</span>
+          <span class="key" style="--key-color:var(--red)">검사 이상</span>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <section id="orders" aria-labelledby="orders-heading">
+    <div class="section-title">
+      <h2 id="orders-heading">입고·검사 이력과 조치 상세</h2>
+      <p>주문번호를 선택하면 상세 내역이 표시됩니다.</p>
+    </div>
+    <div class="workbench">
+      <div class="panel">
+        <div class="filters" role="group" aria-label="주문표 필터">
+          <label>주문번호<input type="search" id="search" placeholder="예시 R02" autocomplete="off"></label>
+          <label>협력사<select id="supplier"><option value="">전체</option></select></label>
+          <label>처리 상태<select id="state"><option value="">전체</option></select></label>
+          <label>예외 유형
+            <select id="exception">
+              <option value="">전체</option>
+              <option value="late">납기 지연</option>
+              <option value="issue">검사 이상</option>
+              <option value="both">지연 및 검사 이상</option>
+            </select>
+          </label>
+          <button id="reset" type="button">초기화</button>
+          <span id="count" class="result" role="status"></span>
+        </div>
+        <div class="table-wrap" tabindex="0" role="region" aria-label="주문 이력표">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">주문번호</th><th scope="col">협력사</th><th scope="col">약정 납기</th>
+                <th scope="col">실제 입고</th><th scope="col">지연</th><th scope="col">검사 결과</th><th scope="col">처리 상태</th>
+              </tr>
+            </thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </div>
+      <aside class="detail" id="detail" aria-label="선택 주문 상세" aria-live="polite"></aside>
+    </div>
+  </section>
+
+  <section id="criteria" aria-labelledby="criteria-heading">
+    <div class="section-title"><h2 id="criteria-heading">집계 기준과 자료 범위</h2></div>
+    <div class="panel criteria">
+      <dl>
+        <dt>납기</dt><dd>실제 입고일이 약정 납기일보다 늦으면 지연으로 집계합니다. 지연 일수는 달력일 기준입니다.</dd>
+        <dt>검사</dt><dd>검사 결과가 ‘정상’ 이외인 주문을 이상으로 집계합니다.</dd>
+        <dt>비율</dt><dd>납기 준수율과 검사 이상률의 분모는 전체 입고 주문입니다. 한 주문에 지연과 검사 이상이 함께 발생할 수 있습니다.</dd>
+        <dt>필터</dt><dd>검색과 필터는 주문표와 상세에 적용됩니다. 상단 지표와 그래프는 전체 주문 기준입니다.</dd>
+      </dl>
+    </div>
+  </section>
+
+  <footer>주문·집계 자료 01_supplier_orders.csv · 후속조치 자료 구매품질-2026-1119-01 (supplier_quality_report.hwpx)</footer>
+</main>
+
+<script type="application/json" id="source-data">
+[
+  {"order_id": "R01", "supplier": "A", "due_date": "2026-11-14", "received_date": "2026-11-14", "quality": "정상", "status": "완료"},
+  {"order_id": "R02", "supplier": "A", "due_date": "2026-11-15", "received_date": "2026-11-17", "quality": "외관 불량", "status": "진행"},
+  {"order_id": "R03", "supplier": "B", "due_date": "2026-11-16", "received_date": "2026-11-16", "quality": "규격 불일치", "status": "진행"},
+  {"order_id": "R04", "supplier": "C", "due_date": "2026-11-16", "received_date": "2026-11-18", "quality": "정상", "status": "완료"},
+  {"order_id": "R05", "supplier": "B", "due_date": "2026-11-17", "received_date": "2026-11-17", "quality": "정상", "status": "완료"},
+  {"order_id": "R06", "supplier": "D", "due_date": "2026-11-17", "received_date": "2026-11-19", "quality": "정상", "status": "진행"},
+  {"order_id": "R07", "supplier": "C", "due_date": "2026-11-18", "received_date": "2026-11-18", "quality": "포장 손상", "status": "진행"},
+  {"order_id": "R08", "supplier": "D", "due_date": "2026-11-19", "received_date": "2026-11-19", "quality": "정상", "status": "완료"}
+]
+</script>
+<script>
+'use strict';
+const get = id => document.getElementById(id);
+const day = 86_400_000;
+const csv = JSON.parse(get('source-data').textContent);
+const orders = csv.map(row => ({
+  id: row.order_id, supplier: row.supplier, due: row.due_date, received: row.received_date,
+  quality: row.quality, status: row.status,
+  daysLate: Math.max(0, (Date.parse(row.received_date) - Date.parse(row.due_date)) / day),
+  issue: row.quality !== '정상',
+}));
+const suppliers = [...new Set(orders.map(order => order.supplier))].sort();
+const states = [...new Set(orders.map(order => order.status))].sort();
+const datesReceived = orders.map(order => order.received).sort();
+const firstDate = datesReceived[0];
+const lastDate = datesReceived.at(-1);
+const late = orders.filter(order => order.daysLate > 0);
+const issues = orders.filter(order => order.issue);
+const open = orders.filter(order => order.status === '진행');
+const closed = orders.filter(order => order.status === '완료');
+const onTime = orders.length - late.length;
+const meanDelay = late.reduce((sum, order) => sum + order.daysLate, 0) / late.length;
+const pct = count => (count / orders.length * 100).toFixed(1) + '%';
+const dateText = date => date.replaceAll('-', '.');
+const shortDate = date => dateText(date.slice(5));
+const orderR02 = orders.find(order => order.id === 'R02');
+const safe = value => String(value).replace(/[&<>"']/g, character =>
+  ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'})[character]);
+
+get('period').textContent = dateText(firstDate) + '–' + shortDate(lastDate);
+get('priority').textContent =
+  '협력사 ' + orderR02.supplier + ' · ' + orderR02.daysLate + '일 지연 · ' + orderR02.quality + ' · CAR-R02 발행 결재 요청안';
+const metrics = [
+  ['total', '전체 주문', orders.length + '건', '협력사 ' + suppliers.length + '곳'],
+  ['delivery', '납기 준수율', pct(onTime), '준수 ' + onTime + '건 · <span class="late-text">납기 지연 ' + late.length + '건</span>'],
+  ['quality', '검사 이상률', pct(issues.length), '검사 이상 ' + issues.length + '건 / 전체 ' + orders.length + '건'],
+  ['open', '진행 건수', open.length + '건', '전체의 ' + pct(open.length) + ' · 완료 ' + closed.length + '건'],
+];
+get('kpis').innerHTML = metrics.map(([key, label, value, note]) =>
+  '<article class="stat" data-metric="' + key + '"><h2>' + label + '</h2><strong class="metric">' + value +
+  '</strong><p>' + note + '</p></article>').join('');
+
+function renderBars(target, rows, axisMax, unit, describe) {
+  get(target).setAttribute('aria-label', rows.map(describe).join(', '));
+  get(target).innerHTML = rows.map(({name, total, good, delayed}) =>
+    '<div class="hrow"><b>' + safe(name) + '</b><div class="htrack">' +
+    '<span class="on-time" style="width:' + good / axisMax * 100 + '%"></span>' +
+    '<span class="delayed" style="width:' + delayed / axisMax * 100 + '%"></span></div>' +
+    '<span class="hvalue">' + total + unit + '</span></div>').join('');
+}
+const deliveryRows = suppliers.map(supplier => {
+  const group = orders.filter(order => order.supplier === supplier);
+  const delayed = group.filter(order => order.daysLate > 0).length;
+  return {name: '협력사 ' + supplier, total: group.length, good: group.length - delayed, delayed};
+});
+renderBars('supplier-chart', deliveryRows, Math.max(...deliveryRows.map(row => row.total)), '건',
+  ({name, good, delayed}) => name + ' 준수 ' + good + '건, 지연 ' + delayed + '건');
+const delayRows = late.map(order => ({name: order.id, total: order.daysLate, good: 0, delayed: order.daysLate}));
+renderBars('delay-chart', delayRows, Math.max(...late.map(order => order.daysLate)) + 1, '일',
+  ({name, total}) => name + ' ' + total + '일 지연');
+get('delay-note').textContent = '납기 지연 ' + late.length + '건 · 지연 주문 평균 ' + meanDelay.toFixed(1) + '일';
+
+const qualityTypes = ['정상', ...new Set(issues.map(order => order.quality))];
+const qualityColors = ['#256489', '#a22c40', '#c54b5b', '#e38591'];
+let qualityCursor = 0;
+const qualityRows = qualityTypes.map((name, index) => {
+  const count = orders.filter(order => order.quality === name).length;
+  const start = qualityCursor;
+  qualityCursor += count / orders.length * 100;
+  return {name, count, color: qualityColors[index], start, end: qualityCursor};
+});
+const stops = qualityRows.map(({color, start, end}) => color + ' ' + start + '% ' + end + '%').join(', ');
+get('quality-chart').setAttribute('aria-label', qualityRows.map(({name, count}) => name + ' ' + count + '건').join(', '));
+get('quality-chart').innerHTML =
+  '<div class="donut" style="background:conic-gradient(' + stops + ')"><div class="donut-center"><strong>' +
+  orders.length + '</strong><span>전체 주문</span></div></div><div class="quality-legend">' +
+  qualityRows.map(({name, count, color}) => '<div><span class="key" style="--key-color:' + color + '">' +
+    safe(name) + '</span><b>' + count + '건</b></div>').join('') + '</div>';
+get('quality-note').textContent = '검사 이상 ' + issues.length + '건 · ' + pct(issues.length);
+
+const dayCount = (Date.parse(lastDate) - Date.parse(firstDate)) / day + 1;
+const daily = Array.from({length: dayCount}, (_, index) => {
+  const date = new Date(Date.parse(firstDate) + index * day).toISOString().slice(0, 10);
+  const group = orders.filter(order => order.received === date);
+  return {date, receipts: group.length, issues: group.filter(order => order.issue).length};
+});
+const receiptScale = Math.max(...daily.map(point => point.receipts)) + 1;
+const receiptX = index => (index + .5) / daily.length;
+get('receipt-chart').setAttribute('aria-label', daily.map(({date, receipts, issues}) =>
+  shortDate(date) + ' 입고 ' + receipts + '건, 검사 이상 ' + issues + '건').join(', '));
+get('receipt-ticks').innerHTML = Array.from({length: receiptScale + 1}, (_, i) =>
+  '<span>' + (receiptScale - i) + '</span>').join('');
+get('receipt-dates').innerHTML = daily.map(({date}) => '<span>' + shortDate(date) + '</span>').join('');
+get('receipt-plot').innerHTML = daily.map(({receipts, issues}, index) => {
+  const x = receiptX(index) * 100;
+  return '<span class="plot-bar" style="--x:' + x + '%;--height:' + receipts / receiptScale * 100 + '%"></span>' +
+    '<span class="plot-point" style="--x:' + x + '%;--y:' + issues / receiptScale * 100 + '%"></span>';
+}).join('') + '<canvas id="receipt-line"></canvas>';
+const plot = get('receipt-plot');
+function drawReceiptLine() {
+  const canvas = get('receipt-line');
+  const {width, height} = canvas.getBoundingClientRect();
+  const scale = window.devicePixelRatio || 1;
+  canvas.width = Math.round(width * scale);
+  canvas.height = Math.round(height * scale);
+  const context = canvas.getContext('2d');
+  context.scale(scale, scale);
+  context.beginPath();
+  for (const [index, point] of daily.entries()) {
+    context.lineTo(receiptX(index) * width, Math.min(height - 1, height * (1 - point.issues / receiptScale)));
+  }
+  context.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--red').trim();
+  context.lineWidth = 2;
+  context.stroke();
+}
+new ResizeObserver(drawReceiptLine).observe(plot);
+drawReceiptLine();
+
+const plans = {
+  R02: {
+    team: '품질·구매',
+    evidence: [
+      '입고검사 기록 IQC-R02에서 주문번호·협력사·입고일·검사 결과·처리 상태가 주문 현황과 일치합니다.',
+      '검사 사진과 검사성적서는 첨부되지 않았습니다. 불량 범위·수량과 발생 원인은 미확인입니다.',
+    ],
+    actions: [
+      'CAR-R02 발행 결재 요청안. 승인 시 품질·구매 담당자와 협력사 회신 기한을 지정합니다.',
+      '품질은 사진·성적서 확보 여부, 불량 범위·수량과 산정 근거를 확인하고, 원인·시정조치 결과·재발방지 대책 및 효과 확인 방법에 대한 협력사 회신을 검토합니다.',
+      '구매는 지연 경위와 후속 납기·조달 일정에 미친 영향을 확인합니다.',
+    ],
+    close: [
+      '품질은 증빙·회신과 시정조치 및 재발방지 효과 확인 결과를 검토합니다. 구매는 납기 영향 검토 결과를 기록합니다. 확인 후 종결 승인을 요청합니다.',
+      '필요 증빙 미확보 시 보류 사유와 추가 확인 항목을 기록합니다. 종결 승인 뒤 주문 현황에 판정 결과와 증빙 위치를 남깁니다.',
+    ],
+  },
+  R03: {
+    team: '구매·품질',
+    actions: ['발주 규격과 실물·검사 기록을 대조합니다.'],
+    close: ['규격 차이와 처분 또는 재검 결과를 기록합니다.'],
+  },
+  R06: {
+    team: '구매',
+    actions: ['지연 경위와 후속 조달 일정 영향을 확인합니다.'],
+    close: ['지연 사유와 일정 영향 검토 결과를 기록합니다.'],
+  },
+  R07: {
+    team: '품질·물류',
+    actions: ['포장 손상 범위와 내용물 영향을 확인합니다.'],
+    close: ['확인 결과와 후속 처리 판단을 기록합니다.'],
+  },
+};
+for (const supplier of suppliers) get('supplier').add(new Option('협력사 ' + supplier, supplier));
+for (const status of states) get('state').add(new Option(status, status));
+const exceptionTests = {
+  '': () => true,
+  late: order => order.daysLate > 0,
+  issue: order => order.issue,
+  both: order => order.daysLate > 0 && order.issue,
+};
+const pill = (text, type) => '<span class="pill ' + type + '">' + safe(text) + '</span>';
+const detailList = items => '<ul>' + items.map(item => '<li>' + safe(item) + '</li>').join('') + '</ul>';
+let selectedId = orderR02.id;
+
+function renderDetail(order) {
+  if (!order) {
+    get('detail').innerHTML = '<h3>주문 상세</h3><p class="detail-meta">조건에 맞는 주문이 없습니다.</p>';
+    return;
+  }
+  const plan = plans[order.id];
+  const fields = [
+    ['납기', '약정 ' + dateText(order.due) + '<br>입고 ' + dateText(order.received) + ' · ' +
+      (order.daysLate ? pill(order.daysLate + '일 지연', 'late') : '납기 준수')],
+    ['검사 결과', pill(order.quality, order.issue ? 'issue' : '')],
+  ];
+  if (plan?.evidence) fields.push(['증빙 상태', detailList(plan.evidence)]);
+  if (plan) fields.push(['후속조치', detailList(plan.actions)], ['종결 조건', detailList(plan.close)]);
+  get('detail').innerHTML = '<h3>' + safe(order.id) + ' 주문 상세</h3><p class="detail-meta">협력사 ' +
+    safe(order.supplier) + ' · 처리 ' + safe(order.status) +
+    (plan ? ' · 검토 부서(안) ' + safe(plan.team) : '') + '</p><dl>' +
+    fields.map(([name, value]) => '<dt>' + name + '</dt><dd>' + value + '</dd>').join('') + '</dl>' +
+    (plan ? '<p class="detail-source">후속조치 근거 · 구매품질-2026-1119-01</p>' : '');
+}
+
+function renderRows() {
+  const query = get('search').value.trim().toUpperCase();
+  const supplier = get('supplier').value;
+  const state = get('state').value;
+  const matchesException = exceptionTests[get('exception').value];
+  const shown = orders.filter(order =>
+    order.id.toUpperCase().includes(query) && (!supplier || supplier === order.supplier) &&
+    (!state || state === order.status) && matchesException(order)
+  );
+  const selected = shown.find(order => order.id === selectedId) ?? shown[0];
+  selectedId = selected?.id;
+  get('count').textContent = shown.length + ' / ' + orders.length + '건';
+  get('rows').innerHTML = shown.map(order => {
+    const active = order.id === selectedId;
+    return '<tr data-current="' + active + '"><th scope="row"><button type="button" class="order-button" data-order="' +
+      safe(order.id) + '" aria-pressed="' + active + '">' + safe(order.id) + '</button></th><td>' +
+      safe(order.supplier) + '</td><td>' + dateText(order.due) + '</td><td>' + dateText(order.received) + '</td><td>' +
+      pill(order.daysLate + '일', order.daysLate > 0 ? 'late' : '') + '</td><td>' +
+      pill(order.quality, order.issue ? 'issue' : '') + '</td><td>' +
+      pill(order.status, order.status === '진행' ? 'open' : 'closed') + '</td></tr>';
+  }).join('') || '<tr><td colspan="7">조건에 맞는 주문이 없습니다.</td></tr>';
+  renderDetail(selected);
+}
+
+function resetFilters(query = '') {
+  for (const id of ['state', 'supplier', 'exception']) get(id).value = '';
+  get('search').value = query;
+  selectedId = orderR02.id;
+  renderRows();
+}
+for (const id of ['state', 'supplier', 'exception']) get(id).addEventListener('change', renderRows);
+get('search').addEventListener('input', renderRows);
+get('reset').addEventListener('click', () => resetFilters());
+get('r02-link').addEventListener('click', () => resetFilters(orderR02.id));
+get('rows').addEventListener('click', event => {
+  const button = event.target.closest('button[data-order]');
+  if (!button) return;
+  selectedId = button.dataset.order;
+  for (const candidate of get('rows').querySelectorAll('button[data-order]')) {
+    const active = candidate === button;
+    candidate.setAttribute('aria-pressed', String(active));
+    candidate.closest('tr').dataset.current = String(active);
+  }
+  renderDetail(orders.find(order => order.id === selectedId));
+});
+renderRows();
+</script>
+</body>
+</html>
